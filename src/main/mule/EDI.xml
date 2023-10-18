@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+
+    xmlns:x12="http://www.mulesoft.org/schema/mule/x12"
+
+    xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+
+http://www.mulesoft.org/schema/mule/x12 http://www.mulesoft.org/schema/mule/x12/current/mule-x12.xsd
+
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="2d63868e-ebf8-453c-96e4-5da60fdc1723" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+    <x12:config name="X12_EDI_Config" doc:name="X12 EDI Config" doc:id="dd8da869-b1eb-49d5-9683-d44095a1df36" interchangeIdQualifierSelf="ZZ" initialInterchangeNumber="0" interchangeIdSelf="Mule" interchangeIdQualifierPartner="ZZ" interchangeIdPartner="DP" groupIdSelf="DA" groupIdPartner="DP">
+
+        <x12:schemas >
+
+            <x12:schema value="/x12/004050/849.esl" ></x12:schema>
+
+        </x12:schemas>
+
+    </x12:config>
+
+    <x12:config name="X12_EDI_Config1" doc:name="X12 EDI Config" doc:id="df04475f-99ca-488a-a976-520de578e4dd" interchangeIdQualifierSelf="ZZ" initialInterchangeNumber="0" interchangeIdSelf="Mule" interchangeIdQualifierPartner="ZZ" interchangeIdPartner="DP" groupIdSelf="DA" groupIdPartner="DP">
+
+        <x12:schemas >
+
+            <x12:schema value="/x12/004050/834.esl" ></x12:schema>
+
+        </x12:schemas>
+
+    </x12:config>
+	<flow name="edi2Flow" doc:id="a5e25c5b-5f0e-46e6-8719-24dbcf135994" initialState="stopped">
+
+        <http:listener doc:name="Listener" doc:id="3c91cec8-f498-494e-8d48-d1089b7471e5" config-ref="HTTP_Listener_config" path="/edi"></http:listener>
+
+        <ee:transform doc:name="Transform Message" doc:id="b236c2cc-b534-42e2-8f79-95073f9e9eb1" >
+
+            <ee:message >
+
+                <ee:set-payload ><![CDATA[%dw 2.0
+
+output application/java
+
+---
+
+{
+
+    Delimiters: "*>U~",
+
+    TransactionSets: {
+
+        v004050: {
+
+            "849": [{
+
+                Interchange: {
+
+                    ISA12: "dfggt"
+
+                },
+
+                Group: {
+
+                    GS01: payload.BillingCountry,
+
+                    GS02: payload.BillingCity,
+
+                    GS03: payload.BillingState,
+
+                    GS04: payload.Reciever_date as Date,
+
+                    GS05: payload.AccountNumber as Number,
+
+                    GS06: payload.Account_Number as Number,
+
+                    GS07: payload.Billing_Country,
+
+                    GS08: payload.Billing_Country
+
+                },
+
+                SetHeader: {
+
+                    ST01: payload.BillingCountry,
+
+                    ST02: payload.BillingCity,
+
+                    ST03: payload.BillingState
+
+                },
+
+                Heading: {
+
+                    "0200_BRC": {
+
+                        BRC01: payload.AccountNumber,
+
+                        BRC02: payload.Reciever_date as Date,
+
+                        BRC03: payload.Billing_State,
+
+                        BRC04: payload.Billing_City,
+
+                        BRC05: payload.Account_Number as Number
+
+                    }
+
+                },
+
+                Detail: {
+
+                },
+
+                Summary: {
+
+                    "0100_CTT": {
+
+                        CTT01: payload.AccountNumber as Number,
+
+                        CTT02: payload.Account_Number as Number,
+
+                        CTT03: payload.Account_Number as Number,
+
+                        CTT04: payload.Name_person,
+
+                        CTT05: payload.Account_Number as Number,
+
+                        CTT06: payload.Billing_City,
+
+                        CTT07: payload.Name_person
+
+                    },
+
+                    "0200_AMT": [{
+
+                        AMT01: payload.Name_person,
+
+                        AMT02: payload.Account_Number as Number,
+
+                        AMT03: "9"
+
+                    }]
+
+                }
+
+            }]
+
+        }
+
+    }
+
+}]]></ee:set-payload>
+
+            </ee:message>
+
+        </ee:transform>
+
+        <logger level="INFO" doc:name="Logger" doc:id="5412eb3d-2f65-43f4-b40b-ad4921de36b0" message="#[payload]" ></logger>
+
+        <x12:write doc:name="Write" doc:id="4660cb33-2bab-4a72-bdab-fa35f1f19581" config-ref="X12_EDI_Config"></x12:write>
+
+        <logger level="INFO" doc:name="Logger" doc:id="289c3ea9-f59b-4758-9d65-a9eacf72bc4c" message="#[payload]" ></logger>
+
+        <ee:transform doc:name="Transform Message" doc:id="fc188c09-4948-4995-a635-54dedba6efca" >
+
+            <ee:message >
+
+                <ee:set-payload ><![CDATA[%dw 2.0
+
+output text/plain
+
+---
+
+payload as String
+
+]]></ee:set-payload>
+
+            </ee:message>
+
+        </ee:transform>
+
+<!--         <set-payload value="#[payload]" doc:name="Set Payload" doc:id="e129b0ff-cb9f-40d3-8827-5954891ac0e9" mimeType="application/csv"></set>
+ -->
+    </flow>
+	<flow name="abcFlow2" doc:id="0c86ef72-8a4e-4eaf-9fa4-c09a7ace1f3f" >
+		<http:listener doc:name="Listener" doc:id="89346310-bc3f-4359-9bca-04b8412c968c" config-ref="HTTP_Listener_config" path="/read"/>
+		<x12:read doc:name="Read" doc:id="b1e2005c-a9b1-4914-90b0-a0ce53c83bba" config-ref="X12_EDI_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="762216d7-2799-4a3d-abad-7660075d2eeb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="abcFlow" doc:id="8cfbc71e-bd7d-4d77-9150-955b6c9e4123" initialState="started">
+		<http:listener doc:name="Listener" doc:id="7c4216cc-5f85-411c-96aa-acb49eac1678" config-ref="HTTP_Listener_config" path="/ed"/>
+		<x12:read doc:name="Read" doc:id="c17e69b4-64dc-45cd-a2b1-90c5a0a2d382" config-ref="X12_EDI_Config1"/>
+		<ee:transform doc:name="Transform Message" doc:id="e519b82c-f2f7-47c5-b76f-a5d4203593eb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="EDI-Flow-Write" doc:id="7ed29e19-451f-4195-ba7d-b3482a0b6011" >
+		<http:listener doc:name="Listener" doc:id="0ba5b400-930d-4335-b998-7fabee186066" config-ref="HTTP_Listener_config" path="/write"/>
+		<ee:transform doc:name="Transform Message" doc:id="ef3431d8-50a7-457c-b0c7-18ad9389e831" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+
+{
+	Delimiters: "*>U~",
+ TransactionSets: {
+
+        v004050: {
+
+            "834": [{
+
+                Interchange: {
+
+                    ISA01: "01",
+					ISA02: "00",
+					ISA16: "P"
+
+                },
+
+                SetHeader: {
+
+                    ST01: payload.BillingCountry,
+					ST02: payload.BillingCity,
+},
+
+                Heading: {
+
+                    "0200_BGN": {
+
+						BGN01: "00" ,
+                        BGN02: "9",
+						BGN03: payload.Reciever_date as Date
+						},
+					"1000_Loop" : [{
+				
+				"0700_N1": {
+					
+					"N101": payload.Billing_City
+				}
+				
+				
+				}]
+                },
+				
+
+                Detail: {},
+
+                Summary: {}
+}]
+
+        }
+
+    }
+
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<x12:write doc:name="Write" doc:id="b75cd399-190b-4cc6-bd9d-0f2cf6e48c1a" config-ref="X12_EDI_Config1"/>
+		<ee:transform doc:name="Transform Message" doc:id="2e154c2b-6f08-4213-9f70-87991008e258" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+
+output text/plain
+
+---
+
+payload as String
+
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+
+</mule>
